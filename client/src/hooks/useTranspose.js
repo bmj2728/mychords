@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 /**
  * Custom hook for transposing chord content
@@ -9,15 +9,8 @@ const useTranspose = (originalContent) => {
   const [transposeSteps, setTransposeSteps] = useState(0);
   const [transposedContent, setTransposedContent] = useState(originalContent || '');
   
-  // Update transposed content when originalContent or transposeSteps change
-  useEffect(() => {
-    if (originalContent) {
-      setTransposedContent(transposeChordContent(originalContent, transposeSteps));
-    }
-  }, [originalContent, transposeSteps]);
-  
   // Transpose a single chord
-  const transposeChord = (chord, steps) => {
+  const transposeChord = useCallback((chord, steps) => {
     const chordNotes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
     const altChordNotes = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
     
@@ -48,10 +41,10 @@ const useTranspose = (originalContent) => {
     }
     
     return newRootNote + chordType;
-  };
+  }, []);
   
   // Transpose entire chord content
-  const transposeChordContent = (content, steps) => {
+  const transposeChordContent = useCallback((content, steps) => {
     if (!content || steps === 0) return content;
     
     // Regex to match chord patterns
@@ -59,7 +52,14 @@ const useTranspose = (originalContent) => {
     
     // Replace each chord with its transposed version
     return content.replace(chordRegex, (match) => transposeChord(match, steps));
-  };
+  }, [transposeChord]);
+  
+  // Update transposed content when originalContent or transposeSteps change
+  useEffect(() => {
+    if (originalContent) {
+      setTransposedContent(transposeChordContent(originalContent, transposeSteps));
+    }
+  }, [originalContent, transposeSteps, transposeChordContent]);
   
   // Increment transpose steps
   const transposeUp = () => {

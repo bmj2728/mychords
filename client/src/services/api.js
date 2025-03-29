@@ -50,7 +50,10 @@ export const songService = {
   deleteSong: (id) => api.delete(`/songs/${id}`),
 };
 
-export default {
+// Create a services object with all services
+const services = {
   artistService,
   songService,
-}; 
+};
+
+export default services; 

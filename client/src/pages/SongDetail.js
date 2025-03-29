@@ -26,8 +26,7 @@ const SongDetail = () => {
     transposedContent,
     transposeUp,
     transposeDown,
-    resetTranspose,
-    setTransposeSteps
+    resetTranspose
   } = useTranspose(song?.content);
   
   useEffect(() => {
