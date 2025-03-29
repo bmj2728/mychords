@@ -1,46 +1,49 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { artistService } from '../services/api';
 
 const ArtistDetail = () => {
   const { artistId } = useParams();
-  const [artist, setArtist] = useState(null);
   const [songs, setSongs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
+  
   useEffect(() => {
-    const fetchArtistAndSongs = async () => {
+    const fetchArtistSongs = async () => {
       try {
         setLoading(true);
-        
-        // Fetch artist details
-        const artistResponse = await artistService.getArtistById(artistId);
-        setArtist(artistResponse.data);
-        
-        // Fetch songs by this artist
-        const songsResponse = await artistService.getArtistSongs(artistId);
-        setSongs(songsResponse.data);
-        
+        const response = await artistService.getSongsByArtist(artistId);
+        setSongs(response.data);
         setLoading(false);
       } catch (err) {
-        setError('Failed to load artist details. Please try again later.');
+        setError('Failed to load artist songs. Please try again later.');
         setLoading(false);
-        console.error('Error fetching artist details:', err);
+        console.error('Error fetching artist songs:', err);
       }
     };
-
-    fetchArtistAndSongs();
+    
+    fetchArtistSongs();
   }, [artistId]);
-
+  
+  // Format is detected based on the filename extension
+  const getFormatFromFilename = (filename) => {
+    if (filename.endsWith('.chordpro')) {
+      return 'chordpro';
+    }
+    return 'plaintext';
+  };
+  
+  // Get artist name from ID (removing underscores)
+  const artistName = artistId.replace(/_/g, ' ');
+  
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="text-xl text-gray-600">Loading artist details...</div>
+        <div className="text-xl text-gray-600">Loading songs...</div>
       </div>
     );
   }
-
+  
   if (error) {
     return (
       <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
@@ -48,89 +51,54 @@ const ArtistDetail = () => {
       </div>
     );
   }
-
-  if (!artist) {
+  
+  if (songs.length === 0) {
     return (
-      <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
-        <p>Artist not found</p>
-        <Link to="/artists" className="mt-2 text-primary hover:underline">
-          Back to artists
+      <div>
+        <Link to="/" className="text-primary hover:underline mb-4 inline-block">
+          &larr; Back to home
         </Link>
+        <div className="bg-yellow-100 p-4 rounded">
+          <p>No songs found for this artist.</p>
+        </div>
       </div>
     );
   }
-
+  
   return (
     <div>
-      <div className="mb-8">
-        <Link to="/artists" className="text-primary hover:underline mb-4 inline-block">
-          &larr; Back to all artists
-        </Link>
-        
-        <div className="flex flex-col md:flex-row md:items-center gap-6">
-          {artist.imageUrl && (
-            <div className="w-full md:w-48 h-48 rounded-lg overflow-hidden">
-              <img 
-                src={artist.imageUrl} 
-                alt={artist.name}
-                className="w-full h-full object-cover" 
-              />
-            </div>
-          )}
-          
-          <div>
-            <h1 className="text-3xl font-bold mb-2">{artist.name}</h1>
-            {artist.info && (
-              <p className="text-gray-600 mb-2">{artist.info}</p>
-            )}
-          </div>
-        </div>
-      </div>
+      <Link to="/" className="text-primary hover:underline mb-4 inline-block">
+        &larr; Back to home
+      </Link>
       
-      <div className="border-t border-gray-200 pt-6">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-semibold">Songs</h2>
-          <button className="btn btn-primary">Add Song</button>
+      <h1 className="text-3xl font-bold mb-4">{artistName}</h1>
+      
+      <div className="mb-6">
+        <h2 className="text-xl font-semibold mb-3">Songs ({songs.length})</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {songs.map(song => {
+            const format = getFormatFromFilename(song.filename);
+            return (
+              <Link
+                key={song.id}
+                to={`/songs/${song.id}?format=${format}`}
+                className="block p-4 bg-white rounded shadow hover:shadow-md transition"
+              >
+                <div className="font-bold mb-1 truncate">{song.title}</div>
+                <div className="flex items-center">
+                  <span className="inline-block px-2 py-1 text-xs bg-gray-200 text-gray-800 rounded">
+                    {format === 'chordpro' ? 'ChordPro' : 'Text'}
+                  </span>
+                  {song.key && (
+                    <span className="ml-2 text-xs text-gray-600">
+                      Key: {song.key}
+                    </span>
+                  )}
+                </div>
+              </Link>
+            );
+          })}
         </div>
-        
-        {songs.length === 0 ? (
-          <div className="text-center p-8 bg-gray-100 rounded-lg">
-            <p className="text-xl text-gray-600 mb-4">No songs found for this artist</p>
-            <p className="text-gray-500">Add the first song!</p>
-          </div>
-        ) : (
-          <div className="bg-white rounded-lg shadow">
-            <ul className="divide-y divide-gray-200">
-              {songs.map((song) => (
-                <li key={song.id} className="p-4 hover:bg-gray-50">
-                  <Link 
-                    to={`/songs/${song.id}`}
-                    className="flex justify-between items-center"
-                  >
-                    <div>
-                      <h3 className="text-lg font-medium">{song.title}</h3>
-                      <span className="inline-block px-2 py-1 text-xs bg-gray-200 text-gray-800 rounded mt-1">
-                        {song.type === 'chord' ? 'Chord Sheet' : 'Tablature'}
-                      </span>
-                    </div>
-                    <svg 
-                      xmlns="http://www.w3.org/2000/svg" 
-                      className="h-5 w-5 text-gray-400" 
-                      viewBox="0 0 20 20" 
-                      fill="currentColor"
-                    >
-                      <path 
-                        fillRule="evenodd" 
-                        d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" 
-                        clipRule="evenodd" 
-                      />
-                    </svg>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
       </div>
     </div>
   );

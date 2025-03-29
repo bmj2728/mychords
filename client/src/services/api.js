@@ -1,59 +1,62 @@
 import axios from 'axios';
 
-// Create an axios instance with common config
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+
+// Create axios instance with baseURL
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: API_URL,
   headers: {
-    'Content-Type': 'application/json',
-  },
+    'Content-Type': 'application/json'
+  }
 });
 
-// Artist API services
-export const artistService = {
-  // Get all artists
-  getAllArtists: () => api.get('/artists'),
-  
-  // Get artist by ID
-  getArtistById: (id) => api.get(`/artists/${id}`),
-  
-  // Create new artist
-  createArtist: (artistData) => api.post('/artists', artistData),
-  
-  // Update artist
-  updateArtist: (id, artistData) => api.put(`/artists/${id}`, artistData),
-  
-  // Delete artist
-  deleteArtist: (id) => api.delete(`/artists/${id}`),
-  
-  // Get all songs by artist
-  getArtistSongs: (artistId) => api.get(`/artists/${artistId}/songs`),
-};
-
-// Song API services
+// Export song-related API services
 export const songService = {
-  // Get all songs with optional filtering
-  getAllSongs: (params) => api.get('/songs', { params }),
-  
-  // Search songs
-  searchSongs: (query) => api.get('/songs/search', { params: { q: query } }),
+  // Get all songs
+  getAllSongs: (format) => {
+    return api.get('/songs', { params: { format } });
+  },
   
   // Get song by ID
-  getSongById: (id) => api.get(`/songs/${id}`),
+  getSongById: (id, format) => {
+    return api.get(`/songs/${id}`, { params: { format } });
+  },
+  
+  // Search songs
+  searchSongs: (searchTerm) => {
+    return api.get(`/songs/search`, { params: { q: searchTerm } });
+  },
   
   // Create new song
-  createSong: (songData) => api.post('/songs', songData),
+  createSong: (songData) => {
+    return api.post('/songs', songData);
+  },
   
   // Update song
-  updateSong: (id, songData) => api.put(`/songs/${id}`, songData),
+  updateSong: (id, songData) => {
+    return api.put(`/songs/${id}`, songData);
+  },
   
   // Delete song
-  deleteSong: (id) => api.delete(`/songs/${id}`),
+  deleteSong: (id, format) => {
+    return api.delete(`/songs/${id}`, { params: { format } });
+  }
 };
 
-// Create a services object with all services
-const services = {
-  artistService,
+// Export artist-related API services
+export const artistService = {
+  // Get all artists
+  getAllArtists: () => {
+    return api.get('/artists');
+  },
+  
+  // Get songs by artist
+  getSongsByArtist: (artistId) => {
+    return api.get(`/artists/${artistId}/songs`);
+  }
+};
+
+export default {
   songService,
-};
-
-export default services; 
+  artistService
+}; 

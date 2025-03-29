@@ -29,7 +29,7 @@ MyChords is a self-hosted alternative to Ultimate Guitar, providing essential fu
 
 1. Clone the repository
 ```
-git clone https://github.com/yourusername/mychords.git
+git clone https://github.com/bmj2728/mychords.git
 cd mychords
 ```
 

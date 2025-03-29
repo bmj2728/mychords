@@ -1,19 +1,24 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { songService } from '../services/api';
 import useAutoscroll from '../hooks/useAutoscroll';
-import useTranspose from '../hooks/useTranspose';
+import { parseChordPro, transposeChordPro } from '../utils/chordproParser';
 
 const SongDetail = () => {
   const { songId } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [song, setSong] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [transposeSteps, setTransposeSteps] = useState(0);
+  const [transposedContent, setTransposedContent] = useState('');
+  const [parsedContent, setParsedContent] = useState('');
   
   // Reference to the scrollable content
   const contentRef = useRef(null);
   
-  // Use custom hooks for autoscroll and transpose
+  // Use custom hook for autoscroll
   const { 
     isScrolling, 
     scrollSpeed, 
@@ -21,20 +26,71 @@ const SongDetail = () => {
     changeScrollSpeed 
   } = useAutoscroll(contentRef);
   
-  const {
-    transposeSteps,
-    transposedContent,
-    transposeUp,
-    transposeDown,
-    resetTranspose
-  } = useTranspose(song?.content);
+  // Function to get format from query params
+  const getFormat = () => {
+    // Parse the query parameters
+    const searchParams = new URLSearchParams(location.search);
+    const format = searchParams.get('format');
+    
+    // Default to 'chordpro' if not specified
+    return format || 'chordpro';
+  };
+  
+  const format = getFormat();
+  
+  // Transpose functions
+  const transposeUp = () => {
+    setTransposeSteps(prev => {
+      const newSteps = prev + 1;
+      if (song && song.content) {
+        const transposed = transposeChordPro(song.content, newSteps);
+        setTransposedContent(transposed);
+        updateParsedContent(transposed);
+      }
+      return newSteps;
+    });
+  };
+  
+  const transposeDown = () => {
+    setTransposeSteps(prev => {
+      const newSteps = prev - 1;
+      if (song && song.content) {
+        const transposed = transposeChordPro(song.content, newSteps);
+        setTransposedContent(transposed);
+        updateParsedContent(transposed);
+      }
+      return newSteps;
+    });
+  };
+  
+  const resetTranspose = () => {
+    setTransposeSteps(0);
+    if (song && song.content) {
+      setTransposedContent(song.content);
+      updateParsedContent(song.content);
+    }
+  };
+  
+  // Update parsed content based on format
+  const updateParsedContent = (content) => {
+    if (format === 'chordpro') {
+      const parsed = parseChordPro(content);
+      setParsedContent(parsed.html);
+    } else {
+      // For plaintext, just replace newlines with <br>
+      setParsedContent(content.replace(/\n/g, '<br>'));
+    }
+  };
   
   useEffect(() => {
     const fetchSong = async () => {
       try {
         setLoading(true);
-        const response = await songService.getSongById(songId);
+        console.log(`Fetching song with ID: ${songId}, format: ${format}`);
+        const response = await songService.getSongById(songId, format);
         setSong(response.data);
+        setTransposedContent(response.data.content);
+        updateParsedContent(response.data.content);
         setLoading(false);
       } catch (err) {
         setError('Failed to load song. Please try again later.');
@@ -44,7 +100,19 @@ const SongDetail = () => {
     };
 
     fetchSong();
-  }, [songId]);
+  }, [songId, format]);
+  
+  const handleDelete = async () => {
+    if (window.confirm('Are you sure you want to delete this song?')) {
+      try {
+        await songService.deleteSong(songId, format);
+        navigate('/');
+      } catch (error) {
+        console.error('Error deleting song:', error);
+        alert('Failed to delete song. Please try again.');
+      }
+    }
+  };
   
   if (loading) {
     return (
@@ -66,8 +134,8 @@ const SongDetail = () => {
     return (
       <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
         <p>Song not found</p>
-        <Link to="/artists" className="mt-2 text-primary hover:underline">
-          Back to artists
+        <Link to="/" className="mt-2 text-primary hover:underline">
+          Back to home
         </Link>
       </div>
     );
@@ -78,29 +146,43 @@ const SongDetail = () => {
       <div className="flex justify-between items-start mb-6">
         <div>
           <Link 
-            to={`/artists/${song.artistId}`} 
+            to="/"
             className="text-primary hover:underline mb-2 inline-block"
           >
-            &larr; Back to {song.artist?.name || 'artist'}
+            &larr; Back to song list
           </Link>
           <h1 className="text-3xl font-bold">{song.title}</h1>
-          <div className="flex items-center mt-2">
-            <span className="text-gray-600 mr-2">
-              {song.artist?.name || 'Unknown Artist'}
-            </span>
-            <span className="inline-block px-2 py-1 text-xs bg-gray-200 text-gray-800 rounded">
-              {song.type === 'chord' ? 'Chord Sheet' : 'Tablature'}
-            </span>
-          </div>
+          {song.artist && (
+            <div className="flex items-center mt-2">
+              <span className="text-gray-600 mr-2">
+                {song.artist}
+              </span>
+              <span className="inline-block px-2 py-1 text-xs bg-gray-200 text-gray-800 rounded">
+                {format === 'chordpro' ? 'ChordPro' : 'Plaintext'}
+              </span>
+            </div>
+          )}
+          {song.album && <div className="text-gray-600 mt-1">Album: {song.album}</div>}
+          {song.key && <div className="text-gray-600">Key: {song.key}</div>}
         </div>
         
         <div className="flex space-x-2">
-          <button className="btn btn-primary">Edit</button>
-          <button className="btn bg-red-500 text-white hover:bg-red-600">Delete</button>
+          <button 
+            onClick={() => navigate(`/songs/${songId}/edit?format=${format}`)}
+            className="btn btn-primary"
+          >
+            Edit
+          </button>
+          <button 
+            onClick={handleDelete}
+            className="btn bg-red-500 text-white hover:bg-red-600"
+          >
+            Delete
+          </button>
         </div>
       </div>
       
-      {song.type === 'chord' && (
+      {format === 'chordpro' && (
         <div className="bg-white p-3 rounded shadow mb-4">
           <div className="flex items-center justify-between">
             <div className="font-medium">Transpose</div>
@@ -156,10 +238,9 @@ const SongDetail = () => {
       
       <div 
         ref={contentRef}
-        className="bg-white p-6 rounded-lg shadow max-h-[60vh] overflow-y-auto font-mono whitespace-pre-wrap"
-      >
-        {transposedContent}
-      </div>
+        className="bg-white p-6 rounded-lg shadow max-h-[60vh] overflow-y-auto font-mono"
+        dangerouslySetInnerHTML={{ __html: parsedContent }}
+      />
     </div>
   );
 };

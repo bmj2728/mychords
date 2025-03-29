@@ -1,13 +1,14 @@
 const express = require('express');
 const router = express.Router();
-const Song = require('../models/Song');
-const Artist = require('../models/Artist');
+const fileService = require('../services/fileService');
+const path = require('path');
+const crypto = require('crypto');
 
-// Get all songs with optional filtering
+// Get all songs with optional format filter
 router.get('/', async (req, res) => {
   try {
-    const { artistId, type } = req.query;
-    const songs = await Song.getAll({ artistId, type });
+    const { format } = req.query;
+    const songs = await fileService.getAllSongs(format);
     res.json(songs);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
@@ -22,29 +23,37 @@ router.get('/search', async (req, res) => {
       return res.status(400).json({ message: 'Search term is required' });
     }
     
-    const songs = await Song.search(q);
+    const songs = await fileService.searchSongs(q);
     res.json(songs);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
 
-// Get song by ID
+// Get song by ID and format
 router.get('/:id', async (req, res) => {
   try {
-    const song = await Song.getById(req.params.id);
+    const { id } = req.params;
+    const { format } = req.query;
+    
+    console.log(`Received request for song: ${id} with format: ${format}`);
+    
+    // Format is required for file lookup
+    if (!format) {
+      console.log('No format provided in the request');
+      return res.status(400).json({ message: 'Format parameter is required (chordpro or plaintext)' });
+    }
+    
+    const song = await fileService.getSongById(id, format);
     if (!song) {
+      console.log(`Song not found: ${id} with format: ${format}`);
       return res.status(404).json({ message: 'Song not found' });
     }
     
-    // Get artist information for the song
-    const artist = await Artist.getById(song.artistId);
-    
-    res.json({
-      ...song,
-      artist: artist || { id: song.artistId }
-    });
+    console.log(`Successfully retrieved song: ${id}`);
+    res.json(song);
   } catch (err) {
+    console.error(`Error getting song:`, err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
@@ -52,41 +61,30 @@ router.get('/:id', async (req, res) => {
 // Create new song
 router.post('/', async (req, res) => {
   try {
-    const { title, artistId, type, content } = req.body;
+    const { title, content, format } = req.body;
     
     // Validate required fields
-    if (!title || !artistId || !type || !content) {
+    if (!title || !content || !format) {
       return res.status(400).json({ 
         message: 'Missing required fields',
-        required: ['title', 'artistId', 'type', 'content']
+        required: ['title', 'content', 'format']
       });
     }
     
-    // Validate type is 'chord' or 'tab'
-    if (type !== 'chord' && type !== 'tab') {
+    // Validate format is 'chordpro' or 'plaintext'
+    if (format !== 'chordpro' && format !== 'plaintext') {
       return res.status(400).json({ 
-        message: 'Type must be "chord" or "tab"'
+        message: 'Format must be "chordpro" or "plaintext"'
       });
     }
     
-    // Check if artist exists
-    const artist = await Artist.getById(artistId);
-    if (!artist) {
-      return res.status(404).json({ message: 'Artist not found' });
-    }
+    // Create a unique ID based on the title
+    const id = await fileService.createSongId(title, format);
     
-    const songId = await Song.create({ title, artistId, type, content });
-    res.status(201).json({ 
-      id: songId, 
-      title, 
-      artistId, 
-      type, 
-      content,
-      artist: {
-        id: artist.id,
-        name: artist.name
-      }
-    });
+    // Save the song
+    const savedSong = await fileService.saveSong(id, format, content);
+    
+    res.status(201).json(savedSong);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -95,47 +93,34 @@ router.post('/', async (req, res) => {
 // Update song
 router.put('/:id', async (req, res) => {
   try {
-    const { title, artistId, type, content } = req.body;
+    const { id } = req.params;
+    const { content, format } = req.body;
     
     // Validate required fields
-    if (!title || !artistId || !type || !content) {
+    if (!content || !format) {
       return res.status(400).json({ 
         message: 'Missing required fields',
-        required: ['title', 'artistId', 'type', 'content']
+        required: ['content', 'format']
       });
     }
     
-    // Validate type is 'chord' or 'tab'
-    if (type !== 'chord' && type !== 'tab') {
+    // Validate format is 'chordpro' or 'plaintext'
+    if (format !== 'chordpro' && format !== 'plaintext') {
       return res.status(400).json({ 
-        message: 'Type must be "chord" or "tab"'
+        message: 'Format must be "chordpro" or "plaintext"'
       });
     }
     
     // Check if song exists
-    const song = await Song.getById(req.params.id);
-    if (!song) {
+    const existingSong = await fileService.getSongById(id, format);
+    if (!existingSong) {
       return res.status(404).json({ message: 'Song not found' });
     }
     
-    // Check if artist exists
-    const artist = await Artist.getById(artistId);
-    if (!artist) {
-      return res.status(404).json({ message: 'Artist not found' });
-    }
+    // Update the song
+    const updatedSong = await fileService.saveSong(id, format, content);
     
-    await Song.update(req.params.id, { title, artistId, type, content });
-    res.json({ 
-      id: req.params.id, 
-      title, 
-      artistId, 
-      type, 
-      content,
-      artist: {
-        id: artist.id,
-        name: artist.name
-      }
-    });
+    res.json(updatedSong);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -144,12 +129,19 @@ router.put('/:id', async (req, res) => {
 // Delete song
 router.delete('/:id', async (req, res) => {
   try {
-    const song = await Song.getById(req.params.id);
-    if (!song) {
+    const { id } = req.params;
+    const { format } = req.query;
+    
+    // Format is required for file deletion
+    if (!format) {
+      return res.status(400).json({ message: 'Format parameter is required (chordpro or plaintext)' });
+    }
+    
+    const result = await fileService.deleteSong(id, format);
+    if (!result) {
       return res.status(404).json({ message: 'Song not found' });
     }
     
-    await Song.delete(req.params.id);
     res.json({ message: 'Song deleted successfully' });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
