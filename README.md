@@ -4,19 +4,20 @@ MyChords is a self-hosted alternative to Ultimate Guitar, providing essential fu
 
 ## Features
 
-- **Chord/Tab File Support**: Upload and view chord charts and tablature
+- **Chord/Tab File Support**: View ChordPro and plaintext chord/tab files
+- **Optimized Chord Display**: Chords positioned nicely above lyrics for easy reading
 - **Artist Organization**: Songs grouped by artist for easy navigation
 - **Search Functionality**: Find songs by artist or song title
 - **Autoscroll**: Hands-free scrolling while playing
-- **Transpose**: Change the key of chord sheets on the fly
+- **Transpose**: Change the key of ChordPro chord sheets on the fly
 - **Responsive Design**: Works on desktop and mobile devices
 
 ## Tech Stack
 
 - **Frontend**: React with Tailwind CSS
 - **Backend**: Node.js with Express
-- **Database**: SQLite for lightweight, file-based storage
-- **State Management**: React Context API
+- **Storage**: File-based storage for chord/tab files
+- **State Management**: React Hooks
 
 ## Getting Started
 
@@ -52,12 +53,45 @@ npm run dev
 
 4. Open your browser and navigate to `http://localhost:3000`
 
-## Development
+For production deployment instructions, see the [DEPLOYMENT.md](DEPLOYMENT.md) guide.
+
+## File Structure
+
+The application stores song files in the following directories:
+- `/data/songs/chordpro` - For ChordPro formatted files (`.chordpro` extension)
+- `/data/songs/plaintext` - For plaintext chord files (`.txt` extension)
+
+## File Formats
+
+### ChordPro Files
+ChordPro files use the `.chordpro` extension and follow the ChordPro format, with chord notations in square brackets:
+
+```
+{title: Song Title}
+{artist: Artist Name}
+{key: C}
+
+[C]Here are the [G]lyrics with [Am]chords in brackets
+```
+
+### Plaintext Files
+Plaintext files use the `.txt` extension with a simple format:
+
+```
+Song Title - Artist Name
+Key: C
+
+    C        G       Am
+Here are the lyrics with chords above
+```
+
+## Project Structure
 
 The project is structured as follows:
 
 - `/client` - React frontend
 - `/server` - Node.js backend
+- `/data` - Song file storage
 - `/docs` - Developer documentation
 
 ## Contributing
