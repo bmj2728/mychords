@@ -4,101 +4,6 @@ import { songService } from '../services/api';
 import useAutoscroll from '../hooks/useAutoscroll';
 import { parseChordPro, transposeChordPro } from '../utils/chordproParser';
 
-// Add a new helper function to parse plaintext chord files
-const parsePlaintext = (content) => {
-  if (!content) return '';
-  
-  // Define styles for chord display
-  const chordStyles = `
-    <style>
-      .chord-line {
-        position: relative;
-        padding-top: 1.5em;
-        margin-bottom: 0.5em;
-        white-space: pre-wrap;
-      }
-      .chord {
-        position: absolute;
-        top: -1.5em;
-        left: 0;
-        font-weight: bold;
-        color: #3B82F6; /* primary blue color */
-        font-size: 0.9em;
-        white-space: nowrap;
-      }
-    </style>
-  `;
-  
-  // Process the content line by line
-  const lines = content.split('\n');
-  let processedHtml = '';
-  
-  // Check if a line is a chord line (mostly consists of chord names and spaces)
-  const isChordLine = (line) => {
-    // Regex for common chord patterns
-    const chordPattern = /^[A-G][#b]?(?:maj|min|m|sus|aug|dim|add|M|7|9|11|13|6|5)*(?:\/[A-G][#b]?)?$/;
-    
-    // Split by multiple spaces and check each token
-    const tokens = line.trim().split(/\s+/);
-    
-    // If line is short or empty, it's not a chord line
-    if (tokens.length <= 1 || line.trim() === '') return false;
-    
-    // Count how many tokens look like chords
-    const chordCount = tokens.filter(token => chordPattern.test(token)).length;
-    
-    // If more than 50% look like chords, it's a chord line
-    return chordCount / tokens.length > 0.5;
-  };
-  
-  // Process each line
-  for (let i = 0; i < lines.length; i++) {
-    const currentLine = lines[i];
-    
-    // Skip empty lines
-    if (currentLine.trim() === '') {
-      processedHtml += '<br>';
-      continue;
-    }
-    
-    // Check if this is a chord line and next line exists
-    if (isChordLine(currentLine) && i + 1 < lines.length) {
-      const lyricLine = lines[i + 1];
-      const chords = currentLine.split(/\s+/);
-      const chordPositions = [];
-      
-      // Find chord positions
-      let pos = 0;
-      for (const chord of chords) {
-        if (chord.trim() !== '') {
-          chordPositions.push({ pos, chord: chord.trim() });
-        }
-        pos += chord.length + 1; // +1 for the space
-      }
-      
-      // Create a chord-line div with positioned chords
-      processedHtml += '<div class="chord-line">';
-      
-      // Add each chord at its position
-      for (const { pos, chord } of chordPositions) {
-        processedHtml += `<span class="chord" style="left: ${pos * 0.6}em;">${chord}</span>`;
-      }
-      
-      // Add the lyrics line
-      processedHtml += lyricLine;
-      processedHtml += '</div>';
-      
-      // Skip the lyrics line in the next iteration
-      i++;
-    } else {
-      // Regular line, just add it
-      processedHtml += currentLine + '<br>';
-    }
-  }
-  
-  return chordStyles + processedHtml;
-};
-
 const SongDetail = () => {
   const { songId } = useParams();
   const navigate = useNavigate();
@@ -172,8 +77,8 @@ const SongDetail = () => {
       const parsed = parseChordPro(content);
       setParsedContent(parsed.html);
     } else {
-      // Use our new plaintext parser
-      setParsedContent(parsePlaintext(content));
+      // For plaintext, just replace newlines with <br> (reverting to original implementation)
+      setParsedContent(content.replace(/\n/g, '<br>'));
     }
   };
   
