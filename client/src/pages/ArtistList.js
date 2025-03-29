@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
+import { artistService } from '../services/api';
 
 const ArtistList = () => {
   const [artists, setArtists] = useState([]);
@@ -11,7 +11,7 @@ const ArtistList = () => {
     const fetchArtists = async () => {
       try {
         setLoading(true);
-        const response = await axios.get('/api/artists');
+        const response = await artistService.getAllArtists();
         setArtists(response.data);
         setLoading(false);
       } catch (err) {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import axios from 'axios';
+import { artistService } from '../services/api';
 
 const ArtistDetail = () => {
   const { artistId } = useParams();
@@ -15,11 +15,11 @@ const ArtistDetail = () => {
         setLoading(true);
         
         // Fetch artist details
-        const artistResponse = await axios.get(`/api/artists/${artistId}`);
+        const artistResponse = await artistService.getArtistById(artistId);
         setArtist(artistResponse.data);
         
         // Fetch songs by this artist
-        const songsResponse = await axios.get(`/api/artists/${artistId}/songs`);
+        const songsResponse = await artistService.getArtistSongs(artistId);
         setSongs(songsResponse.data);
         
         setLoading(false);
