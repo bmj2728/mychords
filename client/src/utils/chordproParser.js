@@ -6,6 +6,31 @@
 const parseChordPro = (chordproContent) => {
   if (!chordproContent) return { html: '', metadata: {} };
   
+  // Define styles for chord display
+  const chordStyles = `
+    <style>
+      .chord-line {
+        position: relative;
+        padding-top: 1.5em;
+        margin-bottom: 0.5em;
+        white-space: pre-wrap;
+      }
+      .chord-container {
+        position: relative;
+        display: inline-block;
+      }
+      .chord {
+        position: absolute;
+        top: -1.5em;
+        left: 0;
+        font-weight: bold;
+        color: #3B82F6; /* primary blue color */
+        font-size: 0.9em;
+        white-space: nowrap;
+      }
+    </style>
+  `;
+  
   // Extract metadata
   const metadata = extractMetadata(chordproContent);
   
@@ -28,7 +53,7 @@ const parseChordPro = (chordproContent) => {
   content = content.replace(/\n/g, '<br>');
   
   return {
-    html: content,
+    html: chordStyles + content,
     metadata
   };
 };
@@ -147,15 +172,57 @@ const replaceSections = (content) => {
  * @returns {string} - Content with replaced chords
  */
 const replaceChords = (content) => {
-  return content.replace(
-    /\[(.*?)\]/g,
-    (match, chord) => {
+  // First, let's add line-by-line processing to better handle chord placements
+  const lines = content.split('\n');
+  const processedLines = lines.map(line => {
+    // If no chord in this line, return it unchanged
+    if (!line.includes('[')) return line;
+    
+    let result = '';
+    let lastIndex = 0;
+    let hasChords = false;
+    
+    // Create a line container with relative positioning
+    result = '<div class="chord-line">';
+    
+    // Process each chord in the line
+    const regex = /\[(.*?)\]/g;
+    let match;
+    
+    while ((match = regex.exec(line)) !== null) {
       // Skip if this is an annotation
-      if (chord.startsWith('*')) return match;
+      if (match[1].startsWith('*')) continue;
       
-      return `<span class="chord text-primary font-bold relative mr-1">${chord}</span>`;
+      hasChords = true;
+      
+      // Add text before this chord
+      const textBefore = line.substring(lastIndex, match.index);
+      result += textBefore;
+      
+      // Add the chord above the text
+      result += `<span class="chord-container"><span class="chord">${match[1]}</span>`;
+      
+      // Update lastIndex to skip the chord notation
+      lastIndex = regex.lastIndex;
     }
-  );
+    
+    // Add remaining text after the last chord
+    if (lastIndex < line.length) {
+      result += line.substring(lastIndex);
+    }
+    
+    // Close any open chord container
+    if (hasChords) {
+      result += '</span>';
+    }
+    
+    // Close the line container
+    result += '</div>';
+    
+    return result;
+  });
+  
+  return processedLines.join('\n');
 };
 
 /**
